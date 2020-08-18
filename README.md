@@ -12,8 +12,10 @@ Need to have ability to create service principal.
 
 
 References:
-<https://docs.microsoft.com/en-us/azure/data-factory/source-control>
-<https://docs.microsoft.com/en-us/azure/data-factory/continuous-integration-deployment#script>
+---------
+- <https://docs.microsoft.com/en-us/azure/data-factory/source-control>
+
+- <https://docs.microsoft.com/en-us/azure/data-factory/continuous-integration-deployment#script>
 
 Review:
 ---------
