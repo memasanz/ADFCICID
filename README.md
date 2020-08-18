@@ -5,6 +5,16 @@ Pre-Reqs:
 ---------
 Need to have ability to create service principal.
 
+- DevOps project (devOps organization)
+- Service Principal will need to be authorized to create resources
+- 3 instances of key vault
+- 3 blob storage instances (dev, qa, prod)
+
+
+References:
+<https://docs.microsoft.com/en-us/azure/data-factory/source-control>
+<https://docs.microsoft.com/en-us/azure/data-factory/continuous-integration-deployment#script>
+
 Review:
 ---------
 ### 1. CI/CD Workflow
@@ -18,12 +28,17 @@ Review:
 
 ## CI/CD Workflow
 --------------------------------------------
+**The master branch is not representative of what's deployed in the Data Factory service. The master branch must be published manually to the Data Factory service.**
+
 1. Work on a new feature branch
 2. Test
-3. Integrate in collaboration branch
-4. Push to QA environment
+3. Integrate in collaboration branch through pull request
+4. Approve pull request and merge into collaboration branch (master)
+5. Publish collaboration (master branch) (**note you can only publish master branch**)
+4. Push to QA environment using branch filter on adf_publish (as captured in screen shot below)
 5. Test in QA environment
 6. Approve moving to production
+7. Code moves into production
 
 ![](media/Picture135.png)
 
@@ -259,6 +274,9 @@ Clicking on the refresh we can see that it has completed.
 
 ### 5. Azure DevOps Setup
 --------------------------------------------
+
+A single Azure Repos Git organization can have multiple repositories, but an Azure Repos Git repository can be associated with only one data factory. If you don't have an Azure Repos organization or repository, follow [these instructions](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/create-organization?view=azure-devops) to create your resources.
+
 
 DevOps Organizations
 Great resource to check out & Plan Yoour organziational structure
