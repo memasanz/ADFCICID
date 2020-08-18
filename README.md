@@ -1,139 +1,494 @@
+Azure Data Factory CI/CD Pipeline Hack
+=======
 
-# ADF CI/CD Pipelines
+Pre-Reqs:
+---------
 
+Review:
+---------
+### 1. CI/CD Workflow
+### 2. Setup Infrastructure
+### 3. Preparing for ADF Integration (setting up key vault)
+### 4. Creating a pipeline from a template
+### 5. Azure DevOps Setup
+### 6. Azure Data Factory Link to Azure DevOps
+### 7. Deploying with a Release Pipeline
 
-1.  GitHub Integration
 
-2.  Infrastructure
+## CI/CD Workflow
+--------------------------------------------
+1. Work on a new feature branch
+2. Test
+3. Integrate in collaboration branch
+4. Push to QA environment
+5. Test in QA environment
+6. Approve moving to production
 
-3.  Preparing for ADF Integration
+![](media/Picture135.png)
 
-4.  Deploy with Release Pipeline
+## 2. Setup Infrastructure
+--------------------------------------------
 
-CI/CD Workflow:
-===============
 
-1.  Work on new feature branch
+Thoughtfully consider a naming strategy
 
-2.  Test
+Ex: 
+```
+{bg}-{projName}-{component}-{environment}
+```
+### 2.1 Setup Resource groups
 
-    Integrate in collaboration branch.
+| Resource Group Names for Example: |
+|--------------------------|
+| mm-proj1-rg-dev          |
+| mm-proj1-rg-qa           |
+| mm-proj1-rg-prod         |
 
-3.  Push to qa Environment
 
-4.  Test stg Environment
+For each environment [dev, qa, prod] we are going to create resources.  
 
-5.  Push to production Environment.
+![](media/Picture001.png)
+![](media/Picture002.png)
+![](media/Picture003.png)
+![](media/Picture004.png)
 
-Infrastructure
-==============
+Finally Create the `Create` Button.
 
-Thoughtfully consider a naming strategy:
+![](media/Picture005.png)
 
-Example **{bg}-{projName}-{component}-{environment}**
+### 2.2 Azure Data Factory
+--------------------------------------------
 
-\-Create for each environment (dev, qa, prod)
+Create a new resource searching for `Data Factory`.  Technically, the pipeline would be able to create the qa and prod environments for us, but we do need to link the qa and prod environments to our key vault, so we will go ahead and create them manually to make sure we can provide them with the correct permissions.
 
->   1. Azure Resource Group
+| ADF Names for Example: |
+|--------------------------|
+| mm-proj1-adf-dev         |
+| mm-proj1-adf-qa          |
+| mm-proj1-adf-prod        |
 
-![](media/b6f2d4012d7ba1ba382cb1bfc8b590d4.png)
+![](media/Picture006.png)
+![](media/Picture007.png)
+![](media/Picture008.png)
+![](media/Picture009.png)
 
-Following the suggestion, the resource group is given the name
+Move onto the `Git configuration`
 
-**mm-proj1-rg-dev**
+![](media/Picture010.png)
+![](media/Picture011.png)
+![](media/Picture012.png)
+![](media/Picture013.png)
 
-**mm-proj1-rg-qa**
+### 2.3 Azure Key Vault
+--------------------------------------------
 
-**mm-proj1-rg-prod**
+Lets create 3 Azure Key Vaults
 
-![](media/a363dd7f58c3ec8f888e1bf6c3da24ab.png)
+| Azure Key Vaults:       |
+|-------------------------|
+| mm-proj1-kv-dev         |
+| mm-proj1-kv-qa          |
+| mm-proj1-kv-prod        |
 
-![](media/20d9f55fd6fe5b7898c9d88f5bedf05d.png)
+![](media/Picture014.png)
+![](media/Picture015.png)
+![](media/Picture016.png)
+![](media/Picture017.png)
+![](media/Picture018.png)
+![](media/Picture21.png)
+![](media/Picture22.png)
 
-![](media/dd76188b14b0e44fadb3ead78e2ec804.png)
+### 2.4 Azure Storage Accounts
+--------------------------------------------
 
->   Finally Click on the Create Button
+| Azure Storage Account:   |
+|--------------------------|
+| mmxproj1xstordev         |
+| mmxproj1xstordqa         |
+| mmxproj1xstordprod       |
 
-![](media/1f8e8ba3468da006f72c92927731a316.png)
+![](media/Picture23.png)
+![](media/Picture24.png)
+![](media/Picture25.png)
 
->   2. Azure Data Factory
+### 2.5 Azure Storage Accounts Containers
+--------------------------------------------
 
->   Create a new resource searching for ‘Data Factory’
+Create containers inside storage account `datasource` & `datadest`
 
-![](media/3503d98667ad26578cd620a5c6d6faf4.png)
+![](media/Picture26.png)
+![](media/Picture27.png)
+![](media/Picture28.png)
 
-![](media/c7fbfa9045d710b87b7e72fc21aed8be.png)
 
-![](media/c218e1cd763022dffa6d7a5d4249e8eb.png)
+## 3. Preparing for ADF Integration (setting up key vault)
+--------------------------------------------
 
->   Provide with name following convention
+We need to setup the key-vault connection string & ADF Key Vault Access.
 
->   mm-proj1-adf-dev, carefully select the correct region
+3.1 Key vault will store your sensitive information, like connection strings.  Go to storage account and copy the Access key we will store it in a variable called ‘blob-connection’
 
-![](media/1d772252aa1df63b82bb06bc1acf0fae.png)
+In each key vault create a blob storage connection string.  Go to the dev instance of your storage account and grab the key from `Access keys`
 
->   Move onto the ‘Git configuraiton’
+![](media/Picture29.png)
+![](media/Picture30.png)
+![](media/Picture31.png)
+![](media/Picture32.png)
+![](media/Picture33.png)
 
-![](media/030a039d6e44b063479cd199ec607dbc.png)
+In each key vault create an environment variable
 
-![](media/a371668451ca8cfda12b51cb158c326c.png)
+![](media/Picture34.png)
 
-![](media/0f84e99bbaf9a8d4e840fc8f9319cb68.png)
+3.2 Setup MSI Key Vault Access
 
-![](media/d13d80b491adf53f59fd2687803cf2ec.png)
+![](media/Picture35.png)
+![](media/Picture36.png)
+![](media/Picture37.png)
+![](media/Picture38.png)
+![](media/Picture39.png)
+![](media/Picture40.png)
+![](media/Picture41.png)
 
-1.  Azure Key Vault
 
-    **mm-proj1-kv-dev**
+## 4. Creating a pipeline from a template
+--------------------------------------------
 
-    **mm-proj1-kv-qa**
+In the dev instance click on the `Author & Monitor` Button
 
-    **mm-proj1-kv-prod**
+![](media/Picture42.png)
+![](media/Picture43.png)
+![](media/Picture44.png)
+![](media/Picture45.png)
+![](media/Picture46.png)
 
-    Search for Key Vault
+Selecting a new DataSourceConnection we are able to create a new linked service.
 
-    ![](media/64655b822645bc66ffd6b77401041762.png)
+![](media/Picture47.png)
 
-    ![](media/4701c66c06073d5f0fa2867a1ccc3fac.png)
+Swap over to Azure Key Vault and we will create a linked service for Azure Key Vault as well.
 
-    ![](media/400eafe8fc17d9ad48bdfc60ac9d7072.png)
+![](media/Picture48.png)
+![](media/Picture49.png)
 
-    ![](media/6e9097f2ef8ab30aad4844e1f8808e11.png)
+After selecting the `create` button 
 
-    ![](media/fea8bc6d652fde8d5c1ab3dd1c380ae9.png)
+![](media/Picture50.png)
 
-    ![](media/f48ab7f72ab7b6b2c7d176c24d51eeff.png)
+Let all 3 use the same linked service.
 
-    ![](media/d625ac2da7690f926929f89220c7d719.png)
+![](media/Picture51.png)
 
-2.  Create Azure Storage Account
+Then select `use this template`
 
-    mmxproj1xstordev
+![](media/Picture52.png)
 
-    mmxproj1xstorqa
+Recall that we created storage containers in each of our environments, lets add them to the parameters inside the ADF pipeline we just created from the template
 
-    mmxproj1xstorprod
+![](media/Picture53.png)
 
-    ![](media/9b2a7f94ddf0f7fec8e8081df078c239.png)
+**Check this**
+![](media/Picture54.png)
 
-    ![](media/f7bb6d7487df9722c1d54a699fa0697c.png)
+Validate & Publish
+![](media/Picture55.png)
 
-    ![](media/489a01ab53c801e6be3c43e3e62e4ef7.png)
+If we want, we can go to the storage explorer & view the storage accounts
 
-3.  Create Containers inside Storage Account ‘datasource’ & ‘datadest’
+![](media/Picture56.png)
+![](media/Picture57.png)
 
-    ![](media/894e7f3a1ddb19ed2a9dc50b4cf733b4.png)
+Clicking debug on the pipeline
 
-    ![](media/68681f832e4d6d37fc1f4edc899a09d6.png)
+![](media/Picture58.png)
 
-    ![](media/8eadeaa14f6d62c4b6bf600ce2844cec.png)
+Clicking on the refresh we can see that it has completed.
 
-Preparing for ADF Integration
-=============================
+![](media/Picture59.png)
 
-Key vault will store your sensitive information, like connection strings. Go to
-storage account and copy the Access key
+![](media/Picture60.png)
 
-![](media/6822577e0811b86c4037cfe8389ae438.png)
+Create a trigger
 
-\-Azure DevOps Project:
+![](media/Picture61.png)
+![](media/Picture62.png)
+![](media/Picture63.png)
+![](media/Picture64.png)
+![](media/Picture65.png)
+![](media/Picture66.png)
+
+### 5. Azure DevOps Setup
+--------------------------------------------
+
+DevOps Organizations
+Great resource to check out & Plan Yoour organziational structure
+
+<https://docs.microsoft.com/en-us/azure/devops/user-guide/plan-your-azure-devops-org-structure?toc=%2Fazure%2Fdevops%2Forganizations%2Ftoc.json&bc=%2Fazure%2Fdevops%2Forganizations%2Fbreadcrumb%2Ftoc.json&view=azure-devops>
+
+![](media/Picture67.png)
+
+Ideally – you would add your project to an existing DevOps organization.  So let’s check what you currently have.
+
+Create a new organization if we need to.  This would be a follow up to determine if there is a central team to work with.
+
+![](media/Picture68.png)
+![](media/Picture69.png)
+![](media/Picture70.png)
+
+Then create a project
+
+![](media/Picture71.png)
+
+Click on the `Create project` button
+
+![](media/Picture72.png)
+
+<http://dev.azure.com/>
+
+### 6. Azure Data Factory Link to Azure DevOps
+--------------------------------------------
+Let’s head back to ADF and setup the link to our newly created project.
+
+![](media/Picture73.png)
+
+![](media/Picture74.png)
+
+Let’s check back at the repo.  We currently only have a master branch.
+
+![](media/Picture75.png)
+
+Going back into ADF we can select the ‘Publish’
+On the collaboration branch ‘master’ when we publish we are generating the adf_publish branch
+
+![](media/Picture76.png)
+
+Going back into devOps project we can see the **adf_publish** branch, but it’s empty.  The first time we need to make an arbituary change to generate the full **adf_publish** branch.
+
+Below is changing the description on the master branch and then publishing
+
+![](media/Picture77.png)
+
+After that – checking the **adf_publish(( branch will have the code.
+
+![](media/Picture78.png)
+
+However, it is empty.
+![](media/Picture79.png)
+
+Create a Release Pipeline
+![](media/Picture80.png)
+![](media/Picture81.png)
+
+Select an Empty Job
+
+![](media/Picture82.png)
+
+Rename the Stage to `QA`, close it with the X and rename the `New release pipeline` to `ADF-Release-Pipeline`
+
+![](media/Picture83.png)
+![](media/Picture84.png)
+
+Don't forget to hit the `Save` button.
+
+![](media/Picture85.png)
+![](media/Picture86.png)
+
+We will go and create some variable groups
+
+Create variable groups
+![](media/Picture87.png)
+![](media/Picture88.png)
+![](media/Picture89.png)
+![](media/Picture90.png)
+![](media/Picture91.png)
+
+Next we will add the variables from key vault.
+
+![](media/Picture92.png)
+
+Then save the variable group
+
+![](media/Picture93.png)
+
+Create Prod Variable Group and Authorize
+
+![](media/Picture94.png)
+
+#### Then Add the prod variables
+
+![](media/Picture95.png)
+
+![](media/Picture96.png)
+
+![](media/Picture97.png)
+
+Now that we have the variable groups to use in the release pipeline we will go ahead and set them up.  
+
+Let’s go back into the releases
+
+![](media/Picture98.png)
+
+#### Setting up deployment Variables
+
+Looking at the adf_publish branch you can see several variables.
+
+![](media/Picture99.png)
+
+`factoryName` is a pipeline variable
+
+![](media/Picture100.png)
+
+![](media/Picture101.png)
+
+![](media/Picture102.png)
+
+![](media/Picture103.png)
+
+#### Setting up the 
+
+![](media/Picture104.png)
+![](media/Picture105.png)
+
+Click the `Add` button
+
+![](media/Picture106.png)
+
+#### Linking Variable Groups
+
+Link qa to QA Stage
+
+![](media/Picture107.png)
+![](media/Picture108.png)
+![](media/Picture109.png)
+![](media/Picture110.png)
+![](media/Picture111.png)
+
+Add another task
+
+![](media/Picture112.png)
+
+Click the `Add` Button
+
+![](media/Picture113.png)
+
+Select the template and template parameter files
+
+![](media/Picture114.png)
+![](media/Picture115.png)
+![](media/Picture116.png)
+
+Override the factoryName with $(factoryName)
+
+![](media/Picture117.png)
+![](media/Picture118.png)
+
+Make sure you select **Incremental**
+
+![](media/Picture119.png)
+
+![](media/Picture120.png)
+
+We need to disable and enable triggers in the adf_publish branch.  We can add the script to the adf_publish branch.
+
+https://docs.microsoft.com/en-us/azure/data-factory/continuous-integration-deployment#script
+
+https://github.com/memasanz/ADFCICID/blob/master/powershellscript/disabletrigger.ps1
+
+![](media/Picture121.png)
+
+So now we can add an Azure Power Shell task to the release pipeline
+
+![](media/Picture122.png)
+
+![](media/Picture123.png)
+
+```
+-armTemplate $(System.DefaultWorkingDirectory)/_mm-data-team-adf-integration/mm-proj1-adf-dev/ARMTemplateForFactory.json -ResourceGroupName mm-proj1-rg-$(Environment) -DataFactoryName $(factoryName) -predeployment $true -deleteDeployment $false
+```
+
+![](media/Picture124.png)
+
+![](media/Picture125.png)
+
+In the post deploy task, update the ‘predeployment’ to be false, and the ‘deleteDeployment’ to be true, it will remove unused resources from ADF (like linked services etc).
+
+![](media/Picture126.png)
+
+Save and clone the QA to create prod
+
+![](media/Picture127.png)
+![](media/Picture128.png)
+
+Now that we have cloned the production we will need to manage our variable groups
+
+![](media/Picture129.png)
+![](media/Picture130.png)
+
+Change the scope of qa to only be for QA
+Then Save
+
+Almost Done. Confirm in key vaults that for stage and prod that the service connection has proper access.
+
+
+![](media/Picture131.png)
+![](media/Picture132.png)
+
+#### Setup continuous integration:
+
+
+![](media/Picture133.png)
+
+Set pre-deployment for prod & Save
+
+
+![](media/Picture134.png)
+
+
+
+#### ADF Workflow
+![](media/Picture135.png)
+
+So now let’s make some changes.
+Create a branch, make a change, create a pull request, get it approved, merged and then you need to publish to see the change.
+Inside dev instance of ADF let’s create a branch
+
+![](media/Picture136.png)
+![](media/Picture137.png)
+![](media/Picture138.png)
+![](media/Picture139.png)
+![](media/Picture140.png)
+![](media/Picture141.png)
+![](media/Picture142.png)
+
+Approve & Complete
+
+![](media/Picture143.png)
+![](media/Picture144.png)
+
+Switch back to Master branch in ADF
+
+![](media/Picture145.png)
+
+You cna debug here
+
+Hit the publish button
+
+![](media/Picture146.png)
+![](media/Picture147.png)
+![](media/Picture148.png)
+![](media/Picture149.png)
+![](media/Picture150.png)
+![](media/Picture151.png)
+![](media/Picture152.png)
+
+
+
+
+
+
+
+
+
+
+
+
