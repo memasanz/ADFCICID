@@ -72,15 +72,21 @@ Create a new resource searching for `Data Factory`.  Technically, the pipeline w
 | mm-proj1-adf-prod        |
 
 ![](media/Picture006.png)
+
 ![](media/Picture007.png)
+
 ![](media/Picture008.png)
+
 ![](media/Picture009.png)
 
 Move onto the `Git configuration`
 
 ![](media/Picture010.png)
+
 ![](media/Picture011.png)
+
 ![](media/Picture012.png)
+
 ![](media/Picture013.png)
 
 ### 2.3 Azure Key Vault
@@ -95,11 +101,17 @@ Lets create 3 Azure Key Vaults
 | mm-proj1-kv-prod        |
 
 ![](media/Picture014.png)
+
 ![](media/Picture015.png)
+
 ![](media/Picture016.png)
+
 ![](media/Picture017.png)
+
 ![](media/Picture018.png)
+
 ![](media/Picture21.png)
+
 ![](media/Picture22.png)
 
 ### 2.4 Azure Storage Accounts
@@ -112,7 +124,9 @@ Lets create 3 Azure Key Vaults
 | mmxproj1xstordprod       |
 
 ![](media/Picture23.png)
+
 ![](media/Picture24.png)
+
 ![](media/Picture25.png)
 
 ### 2.5 Azure Storage Accounts Containers
@@ -121,7 +135,9 @@ Lets create 3 Azure Key Vaults
 Create containers inside storage account `datasource` & `datadest`
 
 ![](media/Picture26.png)
+
 ![](media/Picture27.png)
+
 ![](media/Picture28.png)
 
 
@@ -135,9 +151,13 @@ We need to setup the key-vault connection string & ADF Key Vault Access.
 In each key vault create a blob storage connection string.  Go to the dev instance of your storage account and grab the key from `Access keys`
 
 ![](media/Picture29.png)
+
 ![](media/Picture30.png)
+
 ![](media/Picture31.png)
+
 ![](media/Picture32.png)
+
 ![](media/Picture33.png)
 
 In each key vault create an environment variable
@@ -147,11 +167,17 @@ In each key vault create an environment variable
 3.2 Setup MSI Key Vault Access
 
 ![](media/Picture35.png)
+
 ![](media/Picture36.png)
+
 ![](media/Picture37.png)
+
 ![](media/Picture38.png)
+
 ![](media/Picture39.png)
+
 ![](media/Picture40.png)
+
 ![](media/Picture41.png)
 
 
@@ -161,9 +187,13 @@ In each key vault create an environment variable
 In the dev instance click on the `Author & Monitor` Button
 
 ![](media/Picture42.png)
+
 ![](media/Picture43.png)
+
 ![](media/Picture44.png)
+
 ![](media/Picture45.png)
+
 ![](media/Picture46.png)
 
 Selecting a new DataSourceConnection we are able to create a new linked service.
@@ -173,6 +203,7 @@ Selecting a new DataSourceConnection we are able to create a new linked service.
 Swap over to Azure Key Vault and we will create a linked service for Azure Key Vault as well.
 
 ![](media/Picture48.png)
+
 ![](media/Picture49.png)
 
 After selecting the `create` button 
@@ -191,7 +222,6 @@ Recall that we created storage containers in each of our environments, lets add 
 
 ![](media/Picture53.png)
 
-**Check this**
 ![](media/Picture54.png)
 
 Validate & Publish
@@ -200,6 +230,7 @@ Validate & Publish
 If we want, we can go to the storage explorer & view the storage accounts
 
 ![](media/Picture56.png)
+
 ![](media/Picture57.png)
 
 Clicking debug on the pipeline
@@ -212,13 +243,18 @@ Clicking on the refresh we can see that it has completed.
 
 ![](media/Picture60.png)
 
-Create a trigger
+#### Create a trigger
 
 ![](media/Picture61.png)
+
 ![](media/Picture62.png)
+
 ![](media/Picture63.png)
+
 ![](media/Picture64.png)
+
 ![](media/Picture65.png)
+
 ![](media/Picture66.png)
 
 ### 5. Azure DevOps Setup
@@ -236,7 +272,9 @@ Ideally – you would add your project to an existing DevOps organization.  So l
 Create a new organization if we need to.  This would be a follow up to determine if there is a central team to work with.
 
 ![](media/Picture68.png)
+
 ![](media/Picture69.png)
+
 ![](media/Picture70.png)
 
 Then create a project
@@ -248,6 +286,16 @@ Click on the `Create project` button
 ![](media/Picture72.png)
 
 <http://dev.azure.com/>
+
+Setup Users
+
+Users need to be added to the organization & to the project
+
+![](media/Picture154.png)
+
+![](media/Picture154.png)
+
+![](media/Picture155.png)
 
 ### 6. Azure Data Factory Link to Azure DevOps
 --------------------------------------------
@@ -281,6 +329,7 @@ However, it is empty.
 
 Create a Release Pipeline
 ![](media/Picture80.png)
+
 ![](media/Picture81.png)
 
 Select an Empty Job
@@ -290,20 +339,26 @@ Select an Empty Job
 Rename the Stage to `QA`, close it with the X and rename the `New release pipeline` to `ADF-Release-Pipeline`
 
 ![](media/Picture83.png)
+
 ![](media/Picture84.png)
 
 Don't forget to hit the `Save` button.
 
 ![](media/Picture85.png)
+
 ![](media/Picture86.png)
 
 We will go and create some variable groups
 
 Create variable groups
 ![](media/Picture87.png)
+
 ![](media/Picture88.png)
+
 ![](media/Picture89.png)
+
 ![](media/Picture90.png)
+
 ![](media/Picture91.png)
 
 Next we will add the variables from key vault.
@@ -351,6 +406,7 @@ Looking at the adf_publish branch you can see several variables.
 #### Setting up the 
 
 ![](media/Picture104.png)
+
 ![](media/Picture105.png)
 
 Click the `Add` button
@@ -362,9 +418,13 @@ Click the `Add` button
 Link qa to QA Stage
 
 ![](media/Picture107.png)
+
 ![](media/Picture108.png)
+
 ![](media/Picture109.png)
+
 ![](media/Picture110.png)
+
 ![](media/Picture111.png)
 
 Add another task
@@ -378,12 +438,15 @@ Click the `Add` Button
 Select the template and template parameter files
 
 ![](media/Picture114.png)
+
 ![](media/Picture115.png)
+
 ![](media/Picture116.png)
 
 Override the factoryName with $(factoryName)
 
 ![](media/Picture117.png)
+
 ![](media/Picture118.png)
 
 Make sure you select **Incremental**
@@ -421,11 +484,13 @@ In the post deploy task, update the ‘predeployment’ to be false, and the ‘
 Save and clone the QA to create prod
 
 ![](media/Picture127.png)
+
 ![](media/Picture128.png)
 
 Now that we have cloned the production we will need to manage our variable groups
 
 ![](media/Picture129.png)
+
 ![](media/Picture130.png)
 
 Change the scope of qa to only be for QA
@@ -435,6 +500,7 @@ Almost Done. Confirm in key vaults that for stage and prod that the service conn
 
 
 ![](media/Picture131.png)
+
 ![](media/Picture132.png)
 
 #### Setup continuous integration:
@@ -457,16 +523,23 @@ Create a branch, make a change, create a pull request, get it approved, merged a
 Inside dev instance of ADF let’s create a branch
 
 ![](media/Picture136.png)
+
 ![](media/Picture137.png)
+
 ![](media/Picture138.png)
+
 ![](media/Picture139.png)
+
 ![](media/Picture140.png)
+
 ![](media/Picture141.png)
+
 ![](media/Picture142.png)
 
 Approve & Complete
 
 ![](media/Picture143.png)
+
 ![](media/Picture144.png)
 
 Switch back to Master branch in ADF
@@ -478,11 +551,17 @@ You cna debug here
 Hit the publish button
 
 ![](media/Picture146.png)
+
 ![](media/Picture147.png)
+
 ![](media/Picture148.png)
+
 ![](media/Picture149.png)
+
 ![](media/Picture150.png)
+
 ![](media/Picture151.png)
+
 ![](media/Picture152.png)
 
 
