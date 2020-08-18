@@ -3,6 +3,7 @@ Azure Data Factory CI/CD Pipeline Hack
 
 Pre-Reqs:
 ---------
+Need to have ability to create service principal.
 
 Review:
 ---------
@@ -48,8 +49,11 @@ Ex:
 For each environment [dev, qa, prod] we are going to create resources.  
 
 ![](media/Picture001.png)
+
 ![](media/Picture002.png)
+
 ![](media/Picture003.png)
+
 ![](media/Picture004.png)
 
 Finally Create the `Create` Button.
