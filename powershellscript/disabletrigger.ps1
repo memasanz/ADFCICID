@@ -1,5 +1,9 @@
+# Script created by Microsoft as part of their Continuous integration and delivery (CI/CD) in Azure Data Factory documentation
+# Link: https://docs.microsoft.com/en-us/azure/data-factory/continuous-integration-deployment#sample-prepostdeployment-script
+
 param
 (
+    [parameter(Mandatory = $false)] [String] $rootFolder,
     [parameter(Mandatory = $false)] [String] $armTemplate,
     [parameter(Mandatory = $false)] [String] $ResourceGroupName,
     [parameter(Mandatory = $false)] [String] $DataFactoryName,
@@ -7,191 +11,34 @@ param
     [parameter(Mandatory = $false)] [Bool] $deleteDeployment=$false
 )
 
-function getPipelineDependencies {
-    param([System.Object] $activity)
-    if ($activity.Pipeline) {
-        return @($activity.Pipeline.ReferenceName)
-    } elseif ($activity.Activities) {
-        $result = @()
-        $activity.Activities | ForEach-Object{ $result += getPipelineDependencies -activity $_ }
-        return $result
-    } elseif ($activity.ifFalseActivities -or $activity.ifTrueActivities) {
-        $result = @()
-        $activity.ifFalseActivities | Where-Object {$_ -ne $null} | ForEach-Object{ $result += getPipelineDependencies -activity $_ }
-        $activity.ifTrueActivities | Where-Object {$_ -ne $null} | ForEach-Object{ $result += getPipelineDependencies -activity $_ }
-        return $result
-    } elseif ($activity.defaultActivities) {
-        $result = @()
-        $activity.defaultActivities | ForEach-Object{ $result += getPipelineDependencies -activity $_ }
-        if ($activity.cases) {
-            $activity.cases | ForEach-Object{ $_.activities } | ForEach-Object{$result += getPipelineDependencies -activity $_ }
-        }
-        return $result
-    } else {
-        return @()
-    }
-}
-
-function pipelineSortUtil {
-    param([Microsoft.Azure.Commands.DataFactoryV2.Models.PSPipeline]$pipeline,
-    [Hashtable] $pipelineNameResourceDict,
-    [Hashtable] $visited,
-    [System.Collections.Stack] $sortedList)
-    if ($visited[$pipeline.Name] -eq $true) {
-        return;
-    }
-    $visited[$pipeline.Name] = $true;
-    $pipeline.Activities | ForEach-Object{ getPipelineDependencies -activity $_ -pipelineNameResourceDict $pipelineNameResourceDict}  | ForEach-Object{
-        pipelineSortUtil -pipeline $pipelineNameResourceDict[$_] -pipelineNameResourceDict $pipelineNameResourceDict -visited $visited -sortedList $sortedList
-    }
-    $sortedList.Push($pipeline)
-
-}
-
-function Get-SortedPipelines {
-    param(
-        [string] $DataFactoryName,
-        [string] $ResourceGroupName
-    )
-    $pipelines = Get-AzDataFactoryV2Pipeline -DataFactoryName $DataFactoryName -ResourceGroupName $ResourceGroupName
-    $ppDict = @{}
-    $visited = @{}
-    $stack = new-object System.Collections.Stack
-    $pipelines | ForEach-Object{ $ppDict[$_.Name] = $_ }
-    $pipelines | ForEach-Object{ pipelineSortUtil -pipeline $_ -pipelineNameResourceDict $ppDict -visited $visited -sortedList $stack }
-    $sortedList = new-object Collections.Generic.List[Microsoft.Azure.Commands.DataFactoryV2.Models.PSPipeline]
-    
-    while ($stack.Count -gt 0) {
-        $sortedList.Add($stack.Pop())
-    }
-    $sortedList
-}
-
-function triggerSortUtil {
-    param([Microsoft.Azure.Commands.DataFactoryV2.Models.PSTrigger]$trigger,
-    [Hashtable] $triggerNameResourceDict,
-    [Hashtable] $visited,
-    [System.Collections.Stack] $sortedList)
-    if ($visited[$trigger.Name] -eq $true) {
-        return;
-    }
-    $visited[$trigger.Name] = $true;
-    if ($trigger.Properties.DependsOn) {
-        $trigger.Properties.DependsOn | Where-Object {$_ -and $_.ReferenceTrigger} | ForEach-Object{
-            triggerSortUtil -trigger $triggerNameResourceDict[$_.ReferenceTrigger.ReferenceName] -triggerNameResourceDict $triggerNameResourceDict -visited $visited -sortedList $sortedList
-        }
-    }
-    $sortedList.Push($trigger)
-}
-
-function Get-SortedTriggers {
-    param(
-        [string] $DataFactoryName,
-        [string] $ResourceGroupName
-    )
-    $triggers = Get-AzDataFactoryV2Trigger -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName
-    $triggerDict = @{}
-    $visited = @{}
-    $stack = new-object System.Collections.Stack
-    $triggers | ForEach-Object{ $triggerDict[$_.Name] = $_ }
-    $triggers | ForEach-Object{ triggerSortUtil -trigger $_ -triggerNameResourceDict $triggerDict -visited $visited -sortedList $stack }
-    $sortedList = new-object Collections.Generic.List[Microsoft.Azure.Commands.DataFactoryV2.Models.PSTrigger]
-    
-    while ($stack.Count -gt 0) {
-        $sortedList.Add($stack.Pop())
-    }
-    $sortedList
-}
-
-function Get-SortedLinkedServices {
-    param(
-        [string] $DataFactoryName,
-        [string] $ResourceGroupName
-    )
-    $linkedServices = Get-AzDataFactoryV2LinkedService -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName
-    $LinkedServiceHasDependencies = @('HDInsightLinkedService', 'HDInsightOnDemandLinkedService', 'AzureBatchLinkedService')
-    $Akv = 'AzureKeyVaultLinkedService'
-    $HighOrderList = New-Object Collections.Generic.List[Microsoft.Azure.Commands.DataFactoryV2.Models.PSLinkedService]
-    $RegularList = New-Object Collections.Generic.List[Microsoft.Azure.Commands.DataFactoryV2.Models.PSLinkedService]
-    $AkvList = New-Object Collections.Generic.List[Microsoft.Azure.Commands.DataFactoryV2.Models.PSLinkedService]
-
-    $linkedServices | ForEach-Object {
-        if ($_.Properties.GetType().Name -in $LinkedServiceHasDependencies) {
-            $HighOrderList.Add($_)
-        }
-        elseif ($_.Properties.GetType().Name -eq $Akv) {
-            $AkvList.Add($_)
-        }
-        else {
-            $RegularList.Add($_)
-        }
-    }
-
-    $SortedList = New-Object Collections.Generic.List[Microsoft.Azure.Commands.DataFactoryV2.Models.PSLinkedService]($HighOrderList.Count + $RegularList.Count + $AkvList.Count)
-    $SortedList.AddRange($HighOrderList)
-    $SortedList.AddRange($RegularList)
-    $SortedList.AddRange($AkvList)
-    $SortedList
-}
-
 $templateJson = Get-Content $armTemplate | ConvertFrom-Json
 $resources = $templateJson.resources
 
 #Triggers 
 Write-Host "Getting triggers"
-$triggersInTemplate = $resources | Where-Object { $_.type -eq "Microsoft.DataFactory/factories/triggers" }
-$triggerNamesInTemplate = $triggersInTemplate | ForEach-Object {$_.name.Substring(37, $_.name.Length-40)}
-
-$triggersDeployed = Get-SortedTriggers -DataFactoryName $DataFactoryName -ResourceGroupName $ResourceGroupName
-
-$triggersToStop = $triggersDeployed | Where-Object { $triggerNamesInTemplate -contains $_.Name } | ForEach-Object { 
-    New-Object PSObject -Property @{
-        Name = $_.Name
-        TriggerType = $_.Properties.GetType().Name 
-    }
-}
-$triggersToDelete = $triggersDeployed | Where-Object { $triggerNamesInTemplate -notcontains $_.Name } | ForEach-Object { 
-    New-Object PSObject -Property @{
-        Name = $_.Name
-        TriggerType = $_.Properties.GetType().Name 
-    }
-}
-$triggersToStart = $triggersInTemplate | Where-Object { $_.properties.runtimeState -eq "Started" -and ($_.properties.pipelines.Count -gt 0 -or $_.properties.pipeline.pipelineReference -ne $null)} | ForEach-Object { 
-    New-Object PSObject -Property @{
-        Name = $_.name.Substring(37, $_.name.Length-40)
-        TriggerType = $_.Properties.type
-    }
-}
+$triggersADF = Get-AzDataFactoryV2Trigger -DataFactoryName $DataFactoryName -ResourceGroupName $ResourceGroupName
+$triggersTemplate = $resources | Where-Object { $_.type -eq "Microsoft.DataFactory/factories/triggers" }
+$triggerNames = $triggersTemplate | ForEach-Object {$_.name.Substring(37, $_.name.Length-40)}
+$activeTriggerNames = $triggersTemplate | Where-Object { $_.properties.runtimeState -eq "Started" -and ($_.properties.pipelines.Count -gt 0 -or $_.properties.pipeline.pipelineReference -ne $null)} | ForEach-Object {$_.name.Substring(37, $_.name.Length-40)}
+$deletedtriggers = $triggersADF | Where-Object { $triggerNames -notcontains $_.Name }
+$triggerstostop = $triggerNames | where { ($triggersADF | Select-Object name).name -contains $_ }
 
 if ($predeployment -eq $true) {
     #Stop all triggers
-    Write-Host "Stopping deployed triggers`n"
-    $triggersToStop | ForEach-Object {
-        if ($_.TriggerType -eq "BlobEventsTrigger") {
-            Write-Host "Unsubscribing" $_.Name "from events"
-            $status = Remove-AzDataFactoryV2TriggerSubscription -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_.Name
-            while ($status.Status -ne "Disabled"){
-                Start-Sleep -s 15
-                $status = Get-AzDataFactoryV2TriggerSubscriptionStatus -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_.Name
-            }
-        }
-        Write-Host "Stopping trigger" $_.Name
-        Stop-AzDataFactoryV2Trigger -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_.Name -Force
+    Write-Host "Stopping deployed triggers"
+    $triggerstostop | ForEach-Object { 
+        Write-host "Disabling trigger " $_
+        Stop-AzDataFactoryV2Trigger -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_ -Force 
     }
 }
 else {
     #Deleted resources
     #pipelines
     Write-Host "Getting pipelines"
-    $pipelinesADF = Get-SortedPipelines -DataFactoryName $DataFactoryName -ResourceGroupName $ResourceGroupName
+    $pipelinesADF = Get-AzDataFactoryV2Pipeline -DataFactoryName $DataFactoryName -ResourceGroupName $ResourceGroupName
     $pipelinesTemplate = $resources | Where-Object { $_.type -eq "Microsoft.DataFactory/factories/pipelines" }
     $pipelinesNames = $pipelinesTemplate | ForEach-Object {$_.name.Substring(37, $_.name.Length-40)}
     $deletedpipelines = $pipelinesADF | Where-Object { $pipelinesNames -notcontains $_.Name }
-    #dataflows
-    $dataflowsADF = Get-AzDataFactoryV2DataFlow -DataFactoryName $DataFactoryName -ResourceGroupName $ResourceGroupName
-    $dataflowsTemplate = $resources | Where-Object { $_.type -eq "Microsoft.DataFactory/factories/dataflows" }
-    $dataflowsNames = $dataflowsTemplate | ForEach-Object {$_.name.Substring(37, $_.name.Length-40) }
-    $deleteddataflow = $dataflowsADF | Where-Object { $dataflowsNames -notcontains $_.Name }
     #datasets
     Write-Host "Getting datasets"
     $datasetsADF = Get-AzDataFactoryV2Dataset -DataFactoryName $DataFactoryName -ResourceGroupName $ResourceGroupName
@@ -200,7 +47,7 @@ else {
     $deleteddataset = $datasetsADF | Where-Object { $datasetsNames -notcontains $_.Name }
     #linkedservices
     Write-Host "Getting linked services"
-    $linkedservicesADF = Get-SortedLinkedServices -DataFactoryName $DataFactoryName -ResourceGroupName $ResourceGroupName
+    $linkedservicesADF = Get-AzDataFactoryV2LinkedService -DataFactoryName $DataFactoryName -ResourceGroupName $ResourceGroupName
     $linkedservicesTemplate = $resources | Where-Object { $_.type -eq "Microsoft.DataFactory/factories/linkedservices" }
     $linkedservicesNames = $linkedservicesTemplate | ForEach-Object {$_.name.Substring(37, $_.name.Length-40)}
     $deletedlinkedservices = $linkedservicesADF | Where-Object { $linkedservicesNames -notcontains $_.Name }
@@ -213,18 +60,10 @@ else {
 
     #Delete resources
     Write-Host "Deleting triggers"
-    $triggersToDelete | ForEach-Object { 
+    $deletedtriggers | ForEach-Object { 
         Write-Host "Deleting trigger "  $_.Name
         $trig = Get-AzDataFactoryV2Trigger -name $_.Name -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName
         if ($trig.RuntimeState -eq "Started") {
-            if ($_.TriggerType -eq "BlobEventsTrigger") {
-                Write-Host "Unsubscribing trigger" $_.Name "from events"
-                $status = Remove-AzDataFactoryV2TriggerSubscription -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_.Name
-                while ($status.Status -ne "Disabled"){
-                    Start-Sleep -s 15
-                    $status = Get-AzDataFactoryV2TriggerSubscriptionStatus -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_.Name
-                }
-            }
             Stop-AzDataFactoryV2Trigger -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_.Name -Force 
         }
         Remove-AzDataFactoryV2Trigger -Name $_.Name -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Force 
@@ -233,11 +72,6 @@ else {
     $deletedpipelines | ForEach-Object { 
         Write-Host "Deleting pipeline " $_.Name
         Remove-AzDataFactoryV2Pipeline -Name $_.Name -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Force 
-    }
-    Write-Host "Deleting dataflows"
-    $deleteddataflow | ForEach-Object { 
-        Write-Host "Deleting dataflow " $_.Name
-        Remove-AzDataFactoryV2DataFlow -Name $_.Name -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Force 
     }
     Write-Host "Deleting datasets"
     $deleteddataset | ForEach-Object { 
@@ -273,18 +107,10 @@ else {
         Remove-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -Name $deploymentName
     }
 
-    #Start active triggers - after cleanup efforts
+    #Start Active triggers - After cleanup efforts
     Write-Host "Starting active triggers"
-    $triggersToStart | ForEach-Object { 
-        if ($_.TriggerType -eq "BlobEventsTrigger") {
-            Write-Host "Subscribing" $_.Name "to events"
-            $status = Add-AzDataFactoryV2TriggerSubscription -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_.Name
-            while ($status.Status -ne "Enabled"){
-                Start-Sleep -s 15
-                $status = Get-AzDataFactoryV2TriggerSubscriptionStatus -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_.Name
-            }
-        }
-        Write-Host "Starting trigger" $_.Name
-        Start-AzDataFactoryV2Trigger -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_.Name -Force
+    $activeTriggerNames | ForEach-Object { 
+        Write-host "Enabling trigger " $_
+        Start-AzDataFactoryV2Trigger -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -Name $_ -Force 
     }
 }
